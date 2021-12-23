@@ -22,7 +22,7 @@ class Mask:
             offsetb = idx % 8
             self.mask[offsetB] = self.mask[offsetB] & (~(1 << (7 - offsetb)))
 
-    def set_do_not_care_packet(self, hdr_type, field_name):
+    def set_do_not_care_packet(self, hdr_type, field_name, new_mask_method=False):
         def get_raw_packet():
             if PY2:
                 if hasattr(self.exp_pkt[hdr_type], "__bytes__"):
@@ -34,12 +34,14 @@ class Mask:
             print("Unknown header type")
             return
         try:
-            fields_desc = [
-                field
-                for field in hdr_type.fields_desc
-                if field.name
-                in self.exp_pkt[hdr_type].__class__(get_raw_packet()).fields.keys()
-            ]  # build & read packet to be sure, all fields are correctly filed
+            fields_desc = hdr_type.fields_desc
+            if new_mask_method:
+                fields_desc = [
+                    field
+                    for field in hdr_type.fields_desc
+                    if field.name
+                    in self.exp_pkt[hdr_type].__class__(get_raw_packet()).fields.keys()
+                ]  # build & read packet to be sure, all fields are correctly filed
         except Exception:  # noqa
             self.valid = False
             return

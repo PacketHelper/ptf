@@ -1,3 +1,5 @@
+import pytest
+
 from ptf.mask import Mask
 from ptf.packet_scapy import VXLAN, Ether, IP, TCP
 from ptf.testutils import simple_vxlan_packet
@@ -35,7 +37,7 @@ class TestMask:
         second_masked_packet.set_do_not_care_packet(VXLAN, "gpflags")
 
         assert (
-            masked_simple_vxlan.mask != second_masked_packet.mask
+                masked_simple_vxlan.mask != second_masked_packet.mask
         ), "Masks should not be equal"
 
     def test_mask__mask_has_problem_with_conditional_fields(self):
@@ -53,3 +55,29 @@ class TestMask:
             255,
             255,
         ], "Only gpid field should be masked"
+
+    def test_mask__show_changes(self):
+        pkt = VXLAN(flags=0x80, gpflags=0x23, gpid=0x1234, vni=0x1337)
+        mask_pkt_old = Mask(pkt)
+        mask_pkt_new = Mask(pkt)
+
+        with pytest.raises(IndexError):
+            mask_pkt_old.set_do_not_care_packet(VXLAN, "gpid")
+            print("Exception was raised")
+        mask_pkt_new.set_do_not_care_packet(VXLAN, "gpid", new_mask_method=True)
+
+    def test_mask__change_vxlan_value_which_should_be_masked(self):
+        simple_vxlan = simple_vxlan_packet(vxlan_flags="G")
+        masked_simple_vxlan = Mask(simple_vxlan)
+        masked_simple_vxlan.set_do_not_care_packet(VXLAN, "gpid")  # gpflags, gpid
+
+        second_masked_packet = Mask(simple_vxlan)
+        second_masked_packet.set_do_not_care_packet(VXLAN, "gpid", new_mask_method=True)
+
+        assert (
+                masked_simple_vxlan.mask != second_masked_packet.mask
+        ), "Masks should be equal"
+
+        packet_wth_custom_gpid = simple_vxlan_packet(vxlan_flags="G")
+        packet_wth_custom_gpid[VXLAN].gpid = 0x15
+        assert not masked_simple_vxlan.pkt_match(packet_wth_custom_gpid), "Packets should match"
